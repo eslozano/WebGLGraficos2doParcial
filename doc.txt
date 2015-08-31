@@ -1,0 +1,25 @@
+antes de dibujar hay que pasarle tres parametros
+Uniform
+Attribute
+Vrging
+
+
+
+Capitulo 10 del libro
+Funcion check 
+PickObject
+
+
+Para poder elegir el objeto tenemos que usar las siguientes funciones
+(Segun el color de cada objeto)
+
+var pixels= new Uint8Array(4);
+
+gl.clear(gl.COLOR_BUFFET)
+
+Gl.readPixels
+
+hacemos una funcion de move
+
+y la funcion de move se usa 
+ move (paso el objeto seleccionado,velocidad, 1 la direccion, listener en que eje estoy x,y ,z)

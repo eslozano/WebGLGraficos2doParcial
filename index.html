@@ -1,0 +1,474 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" type="text/css" href="css/style.css" media="screen"/>
+  <style type="text/css"></style>
+
+</head>
+<body data-pinterest-extension-installed="cr1.38.4" cz-shortcut-listen="true">
+    <div id="proyecto">
+      <font face="Cambria">
+        <div class="descripcion">Proyecto Gr&aacute;ficos por Computadora</div><bn>
+        <div class="autores"><b style="color:#f2ec85">Autores: </b>Lozano Estefan&iacute;a, Mora Fausto & San Lucas C&eacute;sar</div>
+      </font>
+    </div>
+
+  <canvas id="canvas"></canvas>
+
+
+
+<script src="js/dat.gui.js"></script>
+<script src="js/TrackballControls.js"></script>
+
+<script src="js/webgl-utils.js"></script>
+<script src="js/webgl-3d-math.js"></script>
+<script src="js/primitives.js"></script>
+
+<!-- vertex shader -->
+<script id="3d-vertex-shader" type="x-shader/x-vertex">
+attribute vec4 a_position;
+attribute vec4 a_color;
+
+uniform mat4 u_matrix;
+
+varying vec4 v_color;
+
+void main() {
+  // Multiply the position by the matrix.
+  gl_Position = u_matrix * a_position;
+  // Pass the color to the fragment shader.
+  v_color = a_color;
+}
+</script>
+<!-- fragment shader -->
+<script id="3d-fragment-shader" type="x-shader/x-fragment">
+//Este aun no tiene iluminacion, este habria que cambiarlo.
+precision mediump float;
+// Passed in from the vertex shader.
+varying vec4 v_color;
+
+uniform vec4 u_colorMult;
+
+void main() {
+   gl_FragColor = v_color * u_colorMult;
+}
+</script>
+<script>
+
+
+function main() {
+  // Get A WebGL context
+  var canvas = document.getElementById("canvas");
+  var gl = getWebGLContext(canvas);
+  if (!gl) {
+    return;
+  }
+
+ var createFlattenedVertices = function(gl, vertices) {
+    return createBufferInfoFromArrays(
+        gl,
+        primitives.makeRandomVertexColors(
+            primitives.deindexVertices(vertices),
+            {
+              vertsPerColor: 6,
+              rand: function(ndx, channel) {
+                return channel < 3 ? ((128 + Math.random() * 128) | 0) : 255;
+              }
+            })
+      );
+  };
+
+
+//Crear las esferas
+  var sphereBufferInfo = createFlattenedVertices(gl, primitives.createSphereVertices(6, 20, 20));
+  var cubeBufferInfo   = createFlattenedVertices(gl, primitives.createCubeVertices(10));
+  var coneBufferInfo   = createFlattenedVertices(gl, primitives.createTruncatedConeVertices(8, 0, 16, 20, 1, true, false));
+  var torusBufferInfo = createFlattenedVertices(gl, primitives.createTorusVertices(5, 3, 25, 25));
+
+  // setup GLSL program
+  var programInfo = createProgramInfo(gl, ["3d-vertex-shader", "3d-fragment-shader"]);
+
+  function degToRad(d) {
+    return d * Math.PI / 180;
+  }
+
+  var cameraAngleRadians = degToRad(0);
+  var fieldOfViewRadians = degToRad(60);
+  var cameraHeight = 50;
+
+  // Uniforms for each object.
+  var sphereUniforms = {
+    u_colorMult: [0.5, 1, 0.5, 1], 
+    u_matrix: makeIdentity(),
+  };
+  var cubeUniforms = {
+    u_colorMult: [1, 0.5, 0.5, 1],
+    u_matrix: makeIdentity(),
+  };
+  var coneUniforms = {
+    u_colorMult: [0.5, 0.5, 1, 1],
+    u_matrix: makeIdentity(),
+  };
+
+  var torusUniforms = {
+  	u_colorMult: [1, 1, 1, 1],
+    u_matrix: makeIdentity(),
+  }
+
+  var sphereTranslation = [ 20,7,-20];
+  var cubeTranslation   = [-30,10,-30];
+  var coneTranslation   = [-40,9,40];
+  var torusTranslation  = [60,7,60];
+
+  //CODIGO PARA LOS CONTROLES
+  var controls = new function() {
+        this.scaleCube = 1;
+        this.scalePyr = 1;
+        this.scaleTor = 1;
+        this.scaleSphe = 1;
+
+        this.axisSelectCube = 2;
+        this.axisSelectPyr = 2;
+        this.axisSelectTor = 1;
+        this.axisSelectSphe = 1;
+
+        this.rotationSpeedCube = 0.4;
+        this.rotationSpeedPyr = 0.4;
+        this.rotationSpeedTor = 0.4;
+        this.rotationSpeedSphe = 0.4;
+
+        this.STraslationSpeed = 0.1;
+        this.CTraslationSpeed = 0.5;
+        this.PTraslationSpeed = 0.5;
+        this.TTraslationSpeed = 0.5;
+
+        //Translation Sphere
+        this.traslationSpheX = 20;
+        this.traslationSpheZ = -20;
+        this.traslationCubeX = -40;
+        this.traslationCubeZ = -40;
+        this.traslationPyrX = -60;
+        this.traslationPyrZ = 60;
+        this.traslationTorX = 80;
+        this.traslationTorZ = 80;
+
+        this.colorSphere = "#0000ff";
+        this.colorCube = "#ffe902";
+        this.colorPyr =  "#00ff04";
+        this.colorTor = "#ff0000";
+    }
+
+
+    var gui = new dat.GUI();
+
+    //Se crearon carpetas para separar los controles de la esfera, cubo, piramide y toroide con el fin de mejorar la presentacion.
+    var Sphere = gui.addFolder('Sphere');
+    Sphere.add(controls, 'axisSelectSphe').options({'X Axis': 1, 'Y Axis': 2, 'Z Axis': 3});
+    Sphere.add(controls, 'rotationSpeedSphe',0,0.5);
+    Sphere.add(controls, 'scaleSphe',0.5,4);
+    Sphere.add(controls, 'traslationSpheX',-50,50).listen();
+    Sphere.add(controls, 'traslationSpheZ',-50,50).listen();
+    Sphere.add(controls, 'STraslationSpeed',0,1);
+    Sphere.addColor(controls, 'colorSphere');
+    Sphere.open();
+
+    var Cube = gui.addFolder('Cube');
+    Cube.add(controls, 'axisSelectCube').options({'X Axis': 1, 'Y Axis': 2, 'Z Axis': 3});
+    Cube.add(controls, 'rotationSpeedCube',0,0.5);
+    Cube.add(controls, 'scaleCube', 0.5,4);
+    Cube.add(controls, 'traslationCubeX',-35,35).listen();
+    Cube.add(controls, 'traslationCubeZ',-35,35).listen();
+    Cube.add(controls, 'CTraslationSpeed',0,1);
+    Cube.addColor(controls, 'colorCube');
+
+    var Toro = gui.addFolder('Toroid');
+    Toro.add(controls, 'axisSelectTor').options({'X Axis': 1, 'Y Axis': 2});
+    Toro.add(controls, 'rotationSpeedTor',0,0.5);
+    Toro.add(controls, 'scaleTor', 0.5,4);
+    Toro.add(controls, 'traslationTorX',-35,35).listen();
+    Toro.add(controls, 'traslationTorZ',-35,35).listen();
+    Toro.add(controls, 'TTraslationSpeed',0,1);
+    Toro.addColor(controls, 'colorTor');
+
+    var Pyr = gui.addFolder('Pyramid');
+    Pyr.add(controls, 'axisSelectPyr').options({'X Axis': 1, 'Y Axis': 2, 'Z Axis': 3});
+    Pyr.add(controls, 'rotationSpeedPyr',0,0.5);
+    Pyr.add(controls, 'scalePyr', 0.5,4);
+    Pyr.add(controls, 'traslationPyrX',-35,35).listen();
+    Pyr.add(controls, 'traslationPyrZ',-35,35).listen();
+    Pyr.add(controls, 'PTraslationSpeed',0,1);
+    Pyr.addColor(controls, 'colorPyr');
+
+
+ //Escalamiento puede ser un vector de tres dimensiones tambien (pero que los valores sean iguales)
+ //Rotacion tambien puede ser un valor de tres dimensiones
+  function computeMatrix(viewMatrix, projectionMatrix, translation, xRotation, yRotation, zRotation,scale) {
+    var xRotationMatrix = makeXRotation(xRotation);
+    var yRotationMatrix = makeYRotation(yRotation);
+    var zRotationMatrix = makeZRotation(zRotation);
+    var translationMatrix = makeTranslation(translation[0],translation[1],translation[2]);
+    var scaleMatrix = makeScale(scale,scale,scale);
+
+    var matrix = makeIdentity();
+    matrix = matrixMultiply(matrix,scaleMatrix);
+    matrix = matrixMultiply(matrix, xRotationMatrix);
+    matrix = matrixMultiply(matrix, yRotationMatrix);
+    matrix = matrixMultiply(matrix, zRotationMatrix);
+    matrix = matrixMultiply(matrix,translationMatrix);
+
+    matrix = matrixMultiply(matrix, viewMatrix);
+    return matrixMultiply(matrix, projectionMatrix);
+  }
+
+  //La siguiente funcion es para redibujar el canvas con un tamaño predeterminado por el usuario
+  function resize(canvas) {
+      // Lookup the size the browser is displaying the canvas.
+      var displayWidth  = canvas.clientWidth;
+      var displayHeight = canvas.clientHeight;
+      // Check if the canvas is not the same size.
+      if (canvas.width  != displayWidth ||
+          canvas.height != displayHeight) {
+          // Make the canvas the same size
+          canvas.width  = displayWidth;
+          canvas.height = displayHeight;
+          // Set the viewport to match
+          gl.viewport(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    requestAnimationFrame(drawScene);
+    
+    //-------------------------------------------------------------PARA LA ESFERA
+    //Para la rotacion
+    var sphereXRotation = 0;
+    var sphereYRotation = 0;
+    var sphereZRotation = 0;
+    //Para la traslacion
+    var updateSphere = function() {
+        requestAnimationFrame(updateSphere);
+        controls.traslationSpheX = sphereTranslation[0];
+        controls.traslationSpheZ = sphereTranslation[2];
+    };
+    updateSphere();
+    var opSobreAdSphere=sphereTranslation[2]/sphereTranslation[0];
+    var anguloSphere=Math.atan(opSobreAdSphere);
+    var radioSphere=sphereTranslation[0]/(Math.cos(anguloSphere));
+    //Para escalar
+    var sphereScale=1;
+
+    //---------------------------------------------------------PARA EL CUBO
+    //Para la rotacion
+    var cubeXRotation = 0;
+    var cubeYRotation = 0;
+    var cubeZRotation = 0;
+    //Para la traslacion
+    var updateCubo = function() {
+        requestAnimationFrame(updateCubo);
+        controls.traslationCubeX = cubeTranslation[0];
+        controls.traslationCubeZ = cubeTranslation[2];
+    };
+    updateCubo();
+    var opSobreAdCube=cubeTranslation[2]/cubeTranslation[0];
+    var anguloCube=Math.atan(opSobreAdCube);
+    var radioCube=cubeTranslation[0]/(Math.cos(anguloCube));
+    //Para escalar
+    var cubeScale=1;
+
+
+
+  // Draw the scene.
+
+  function drawScene(time) {
+
+    resize(canvas);
+    time *= 0.0005;
+
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+
+    // Clear the canvas AND the depth buffer.
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // Compute the projection matrix
+    var aspect = canvas.clientWidth / canvas.clientHeight;
+    var projectionMatrix =
+        makePerspective(fieldOfViewRadians, aspect, 1, 2000);
+
+    // Compute the camera's matrix using look at.
+    var cameraPosition = [0, 150, 150];
+    var target = [0, 0, 0];
+    var up = [0, 1, 0];
+    var cameraMatrix = makeLookAt(cameraPosition, target, up);
+
+    // Make a view matrix from the camera matrix.
+    var viewMatrix = makeInverse(cameraMatrix);
+
+    //////     Funciones de la esfera       ///////
+      //rotacion de la esfera en sus propios ejes
+    if (controls.axisSelectSphe == 1){
+        sphereXRotation += controls.rotationSpeedSphe;
+    } else if (controls.axisSelectSphe == 2){
+        sphereYRotation += controls.rotationSpeedSphe;
+    } else if(controls.axisSelectSphe == 3){
+        sphereZRotation += controls.rotationSpeedSphe;
+    }
+    //Translacion para la ESFERA
+    //La siguiente función es para trasladar la esfera en circulos, y que si la detengo la pueda mover en x y en z. Y luego pueda seguir girando.
+    if(controls.STraslationSpeed>0){
+        sphereTranslation[0]=(radioSphere*Math.cos(anguloSphere));//EN X
+        sphereTranslation[2]=(radioSphere*Math.sin(anguloSphere));//EN Z
+        anguloSphere+=0.10*controls.STraslationSpeed;
+        controls.traslationSpheX=sphereTranslation[0];
+        controls.traslationSpheZ=sphereTranslation[2];
+    }else{
+        sphereTranslation[0]=controls.traslationSpheX;
+        sphereTranslation[2]=controls.traslationSpheZ;
+
+        opSobreAdSphere=sphereTranslation[2]/sphereTranslation[0];
+        anguloSphere=Math.atan(opSobreAdSphere);
+        radioSphere=sphereTranslation[0]/(Math.cos(anguloSphere));
+    }
+    //Escalar la esfera
+    sphereScale = controls.scaleSphe; 
+
+
+
+     //////     Funciones del cubo       ///////
+      //rotacion del cubo en sus propios ejes
+    if (controls.axisSelectCube == 1){
+        cubeXRotation += controls.rotationSpeedCube;
+    } else if (controls.axisSelectCube == 2){
+        cubeYRotation += controls.rotationSpeedCube;
+    } else if(controls.axisSelectCube == 3){
+        cubeZRotation += controls.rotationSpeedCube;
+    }
+    //Translacion para el cubo.
+    if(controls.CTraslationSpeed>0){
+        cubeTranslation[0]=(radioCube*Math.cos(anguloCube));//EN X
+        cubeTranslation[2]=(radioCube*Math.sin(anguloCube));//EN Z
+        anguloCube+=0.10*controls.CTraslationSpeed;
+        controls.traslationCubeX=cubeTranslation[0];
+        controls.traslationCubeZ=cubeTranslation[2];
+    }else{
+        cubeTranslation[0]=controls.traslationCubeX;
+        cubeTranslation[2]=controls.traslationCubeZ;
+
+        opSobreAdCube=cubeTranslation[2]/cubeTranslation[0];
+        anguloCube=Math.atan(opSobreAdCube);
+        radioCube=cubeTranslation[0]/(Math.cos(anguloCube));
+    }
+    //Escalar la esfera
+    cubeScale = controls.scaleCube;
+
+
+
+    coneScale = controls.scalePyr;
+    torusScale = controls.scaleTor;
+
+
+
+
+    var coneXRotation   =  time;
+    var coneYRotation   = -time;
+    var coneZRotation   = time;
+    var torusXRotation =  time;
+    var torusYRotation =  time;
+    var torusZRotation = -time
+
+
+    
+
+    // ------ Draw the sphere --------
+
+    gl.useProgram(programInfo.program);
+
+    // Setup all the needed attributes.
+    setBuffersAndAttributes(gl, programInfo.attribSetters, sphereBufferInfo);
+
+    sphereUniforms.u_matrix = computeMatrix(
+        viewMatrix,
+        projectionMatrix,
+        sphereTranslation,
+        sphereXRotation,
+        sphereYRotation,
+        sphereZRotation,
+        sphereScale);
+
+    // Set the uniforms we just computed
+    setUniforms(programInfo.uniformSetters, sphereUniforms);
+
+    gl.drawArrays(gl.TRIANGLES, 0, sphereBufferInfo.numElements);
+
+    // ------ Draw the cube --------
+
+    // Setup all the needed attributes.
+    setBuffersAndAttributes(gl, programInfo.attribSetters, cubeBufferInfo);
+
+    cubeUniforms.u_matrix = computeMatrix(
+        viewMatrix,
+        projectionMatrix,
+        cubeTranslation,
+        cubeXRotation,
+        cubeYRotation,
+        cubeZRotation,
+        cubeScale);
+
+    // Set the uniforms we just computed
+    setUniforms(programInfo.uniformSetters, cubeUniforms);
+
+    gl.drawArrays(gl.TRIANGLES, 0, cubeBufferInfo.numElements)
+   
+
+    // ------ Draw the cone --------
+
+    // Setup all the needed attributes.
+    setBuffersAndAttributes(gl, programInfo.attribSetters, coneBufferInfo);
+
+    coneUniforms.u_matrix = computeMatrix(
+        viewMatrix,
+        projectionMatrix,
+        coneTranslation,
+        coneXRotation,
+        coneYRotation,
+        coneZRotation,
+        coneScale);
+
+    // Set the uniforms we just computed
+    setUniforms(programInfo.uniformSetters, coneUniforms);
+
+    gl.drawArrays(gl.TRIANGLES, 0, coneBufferInfo.numElements);
+
+
+    // ------ Draw the torus --------
+
+    gl.useProgram(programInfo.program);
+
+    // Setup all the needed attributes.
+    setBuffersAndAttributes(gl, programInfo.attribSetters, torusBufferInfo);
+
+    torusUniforms.u_matrix = computeMatrix(
+        viewMatrix,
+        projectionMatrix,
+        torusTranslation,
+        torusXRotation,
+        torusYRotation,
+        torusZRotation,
+        torusScale);
+
+    // Set the uniforms we just computed
+    setUniforms(programInfo.uniformSetters, torusUniforms);
+
+    gl.drawArrays(gl.TRIANGLES, 0, torusBufferInfo.numElements);
+
+    requestAnimationFrame(drawScene);
+  }
+}
+
+window.addEventListener('load', main);
+</script>
+
+
+
+
+</body></html>
