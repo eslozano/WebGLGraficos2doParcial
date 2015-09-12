@@ -11,6 +11,7 @@
       <font face="Cambria">
         <div class="descripcion">Proyecto Gr&aacute;ficos por Computadora</div><bn>
         <div class="autores"><b style="color:#f2ec85">Autores: </b>Lozano Estefan&iacute;a, Mora Fausto & San Lucas C&eacute;sar</div>
+          <div class="proyectoDesc"><b style="color:#f2ec85">NOTA: </b>Para mover los objetos en X o en Z su velocidad de desplazamiento debe ser CERO (Sphere:STraslationSpeed=0, Cube:CTraslationSpeed=0...). Los controles se activan automaticamente</div>
       </font>
     </div>
 
@@ -135,7 +136,7 @@ function main() {
   var sphereTranslation = [ 20,7,-20];
   var cubeTranslation   = [-30,10,-30];
   var coneTranslation   = [-40,9,40];
-  var torusTranslation  = [60,7,60];
+  var torusTranslation  = [45,7,45];
 
   //CODIGO PARA LOS CONTROLES
   var controls = new function() {
@@ -155,8 +156,8 @@ function main() {
         this.rotationSpeedSphe = 0.4;
 
         this.STraslationSpeed = 0.1;
-        this.CTraslationSpeed = 0.5;
-        this.PTraslationSpeed = 0.5;
+        this.CTraslationSpeed = 0.2;
+        this.PTraslationSpeed = 0.3;
         this.TTraslationSpeed = 0.5;
 
         //Translation Sphere
@@ -183,6 +184,12 @@ function main() {
     var gui = new dat.GUI();
 
     //Se crearon carpetas para separar los controles de la esfera, cubo, piramide y toroide con el fin de mejorar la presentacion.
+
+    var Zoom = gui.addFolder('Camara');
+    Zoom.add(controls, 'Zoom',-100,35);
+    Zoom.add(controls, 'Girar',-180,180);
+    Zoom.open();
+
     var Sphere = gui.addFolder('Sphere');
     Sphere.add(controls, 'axisSelectSphe').options({'X Axis': 1, 'Y Axis': 2, 'Z Axis': 3});
     Sphere.add(controls, 'rotationSpeedSphe',0,0.5);
@@ -220,9 +227,7 @@ function main() {
     Pyr.add(controls, 'PTraslationSpeed',0,1);
     Pyr.addColor(controls, 'colorPyr');
 
-    var Zoom = gui.addFolder('Camera');
-    Zoom.add(controls, 'Zoom',-100,35);
-    Zoom.add(controls, 'Girar',0,360);
+    
 
 
  //Escalamiento puede ser un vector de tres dimensiones tambien (pero que los valores sean iguales)
@@ -269,9 +274,9 @@ function main() {
           // Set the viewport to match
           gl.viewport(0, 0, canvas.width, canvas.height);
       }
-    }
+  }
 
-    requestAnimationFrame(drawScene);
+  requestAnimationFrame(drawScene);
     
     //-------------------------------------------------------------PARA LA ESFERA
     //Para la rotacion
@@ -309,10 +314,47 @@ function main() {
     //Para escalar
     var cubeScale=1;
 
+    //---------------------------------------------------------PARA La piramide
+    //Para la rotacion
+    var coneXRotation= 0;
+    var coneYRotation=0;
+    var coneZRotation=0;
+    //Para la traslacion
+    var updatePyramid = function() {
+        requestAnimationFrame(updatePyramid);
+        controls.traslationPyrX = coneTranslation[0];
+        controls.traslationPyrZ = coneTranslation[2];
+    };
+    updatePyramid();
+    var opSobreAdPyr=coneTranslation[2]/coneTranslation[0];
+    var anguloPyr=Math.atan(opSobreAdPyr);
+    var radioPyr=coneTranslation[0]/(Math.cos(anguloPyr));
+    //Para escalar
+    var coneScale=1;
+
+    //---------------------------------------------------------PARA el toroide
+    //Para la rotacion
+    var torusXRotation = 0;
+    var torusYRotation = 0;
+    var torusZRotation = 0;
+    //Para la traslacion
+    var updateTorus = function() {
+        requestAnimationFrame(updateTorus);
+        controls.traslationTorX = torusTranslation[0];
+        controls.traslationTorZ = torusTranslation[2];
+    };
+    updateTorus();
+    var opSobreAdTor=torusTranslation[2]/coneTranslation[0];
+    var anguloTor=Math.atan(opSobreAdTor);
+    var radioTor=torusTranslation[0]/(Math.cos(anguloTor));
+    //Para escalar
+    var torusScale=1;
 
 
 
-  // Draw the scene.
+
+
+  // /////////////////////////////////////////////////////*************************************************Draw the scene.
 
   function drawScene(time) {
 
@@ -335,8 +377,8 @@ function main() {
     var target = [0, 0, 0];
     var up = [0, 1, 0];
 
-
-    //----------------------------------------------CAMARAAAAAAAAAAAAAAAAAAAAAAAAA
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA LA CAMARA -----------------------------------------------------
     // CAMBIO ZOOM
     if (controls.Zoom!=0){
       zoom = -1 * (controls.Zoom * 2);
@@ -344,17 +386,19 @@ function main() {
       cameraPosition[2] = cameraPosition[2] + zoom;
     }
     if (controls.Girar!=0){
-      cameraPosition[0] = cameraPosition[2]*(Math.cos(controls.Girar*((2*Math.PI)/360)));
-      cameraPosition[2] = cameraPosition[2]*(Math.sin(controls.Girar*((2*Math.PI)/360)));
+      cameraPosition[0] = cameraPosition[2]*(Math.cos(controls.Girar*((2*Math.PI)/360)+(Math.PI/2)));
+      cameraPosition[2] = cameraPosition[2]*(Math.sin(controls.Girar*((2*Math.PI)/360)+(Math.PI/2)));
 
     }
-
     var cameraMatrix = makeLookAt(cameraPosition, target, up);
-
     // Make a view matrix from the camera matrix.
     var viewMatrix = makeInverse(cameraMatrix);
+    //----------------------------------------------TERMINA LA CAMARA -----------------------------------------------------
 
-    //////     Funciones de la esfera       ///////
+
+
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA LA ESFERA -----------------------------------------------------
       //rotacion de la esfera en sus propios ejes
     if (controls.axisSelectSphe == 1){
         sphereXRotation += controls.rotationSpeedSphe;
@@ -382,9 +426,12 @@ function main() {
     //Escalar la esfera
     sphereScale = controls.scaleSphe; 
 
+    //----------------------------------------------termina LA ESFERA -----------------------------------------------------
 
 
-     //////     Funciones del cubo       ///////
+
+     //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA EL CUBO -----------------------------------------------------
       //rotacion del cubo en sus propios ejes
     if (controls.axisSelectCube == 1){
         cubeXRotation += controls.rotationSpeedCube;
@@ -408,24 +455,91 @@ function main() {
         anguloCube=Math.atan(opSobreAdCube);
         radioCube=cubeTranslation[0]/(Math.cos(anguloCube));
     }
-    //Escalar la esfera
+    //Escalar el cubo
     cubeScale = controls.scaleCube;
-    coneScale = controls.scalePyr;
+    //----------------------------------------------TERMINA EL CUBO -----------------------------------------------------
+
+
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA EL CONO -----------------------------------------------------
+      //rotacion del cubo en sus propios ejes
+    if (controls.axisSelectPyr == 1){
+        coneXRotation += controls.rotationSpeedPyr;
+    } else if (controls.axisSelectPyr == 2){
+        coneYRotation += controls.rotationSpeedPyr;
+    } else if(controls.axisSelectPyr == 3){
+        coneZRotation += controls.rotationSpeedPyr;
+    }
+    //Translacion para el cubo.
+    if(controls.PTraslationSpeed>0){
+        coneTranslation[0]=(radioPyr*Math.cos(anguloPyr));//EN X
+        coneTranslation[2]=(radioPyr*Math.sin(anguloPyr));//EN Z
+        anguloPyr+=0.10*controls.PTraslationSpeed;
+        controls.traslationPyrX=coneTranslation[0];
+        controls.traslationPyrZ=coneTranslation[2];
+    }else{
+        coneTranslation[0]=controls.traslationPyrX;
+        coneTranslation[2]=controls.traslationPyrZ;
+
+        opSobreAdPyr=coneTranslation[2]/coneTranslation[0];
+        anguloPyr=Math.atan(opSobreAdPyr);
+        radioPyr=coneTranslation[0]/(Math.cos(anguloPyr));
+    }
+    //Escala el cono
+   coneScale = controls.scalePyr;
+
+
+
+    //----------------------------------------------TERMINA EL CONO -----------------------------------------------------
+
+
+
+
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA EL TOROIDE---------------------------------------------------
+
+      //rotacion del cubo en sus propios ejes
+    if (controls.axisSelectTor == 1){
+        torusXRotation += controls.axisSelectTor;
+    } else if (controls.axisSelectTor == 2){
+        torusYRotation += controls.axisSelectTor;
+    } else if(controls.axisSelectTor == 3){
+        torusZRotation += controls.axisSelectTor;
+    }
+    //Translacion para el cubo.
+    if(controls.TTraslationSpeed>0){
+        torusTranslation[0]=(radioTor*Math.cos(anguloTor));//EN X
+        torusTranslation[2]=(radioTor*Math.sin(anguloTor));//EN Z
+        anguloTor+=0.10*controls.TTraslationSpeed;
+        controls.traslationTorX=torusTranslation[0];
+        controls.traslationTorZ=torusTranslation[2];
+    }else{
+        torusTranslation[0]=controls.traslationTorX;
+        torusTranslation[2]=controls.traslationTorZ;
+
+        opSobreAdTor=torusTranslation[2]/torusTranslation[0];
+        anguloTor=Math.atan(opSobreAdTor);
+        radioTor=torusTranslation[0]/(Math.cos(anguloTor));
+    }
+    //Escalar el toroide
     torusScale = controls.scaleTor;
+    //----------------------------------------------TERMINA EL TOROIDE-----------------------------------------------------
 
+   
 
-
-
-    var coneXRotation   =  time;
-    var coneYRotation   = -time;
-    var coneZRotation   = time;
     var torusXRotation =  time;
     var torusYRotation =  time;
     var torusZRotation = -time
 
+
+
+
+
     gl.useProgram(programInfo.program);
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------SE DIBUJAN TODAS LAS FIGURAS-----------------------------------------------
     
-    // CAMBIO PLANO
+    // ------ Draw the plane --------
     setBuffersAndAttributes(gl, programInfo.attribSetters, planeBufferInfo);
     planoUniforms.u_matrix = computeMatrixPlano(viewMatrix, projectionMatrix, planeTranslation);
     setUniforms(programInfo.uniformSetters, planoUniforms);
