@@ -79,6 +79,9 @@ function main() {
       );
   };
 
+  // CREAR PLANO CAMBIO
+  var planeBufferInfo = createFlattenedVertices(gl, primitives.createPlaneVertices(canvas.width, canvas.height, 10, 10));
+  var cylinderBufferInfo = createFlattenedVertices(gl, primitives.createTruncatedConeVertices(8, 8, 100, 10, 10, false, true));
 
 //Crear las esferas
   var sphereBufferInfo = createFlattenedVertices(gl, primitives.createSphereVertices(6, 20, 20));
@@ -115,6 +118,19 @@ function main() {
   	u_colorMult: [1, 1, 1, 1],
     u_matrix: makeIdentity(),
   }
+  // PLANO CAMBIO
+  var planoUniforms = {
+    u_colorMult: [1, 0.5, 0.5, 1],
+    u_matrix: makeIdentity(),
+  }
+  var cylinderUniforms = {
+    u_colorMult: [1, 1, 1, 1],
+    u_matrix: makeIdentity(),
+  }
+
+  //CAMBIO PLANO
+  var planeTranslation = [0,0,0];
+  var cylinderTranslation = [0,0,0];
 
   var sphereTranslation = [ 20,7,-20];
   var cubeTranslation   = [-30,10,-30];
@@ -152,6 +168,9 @@ function main() {
         this.traslationPyrZ = 60;
         this.traslationTorX = 80;
         this.traslationTorZ = 80;
+
+        //Zoom
+        this.Zoom=0;
 
         this.colorSphere = "#0000ff";
         this.colorCube = "#ffe902";
@@ -200,6 +219,9 @@ function main() {
     Pyr.add(controls, 'PTraslationSpeed',0,1);
     Pyr.addColor(controls, 'colorPyr');
 
+    var Zoom = gui.addFolder('Zoom');
+    Zoom.add(controls, 'Zoom',-100,100);
+
 
  //Escalamiento puede ser un vector de tres dimensiones tambien (pero que los valores sean iguales)
  //Rotacion tambien puede ser un valor de tres dimensiones
@@ -216,6 +238,16 @@ function main() {
     matrix = matrixMultiply(matrix, yRotationMatrix);
     matrix = matrixMultiply(matrix, zRotationMatrix);
     matrix = matrixMultiply(matrix,translationMatrix);
+
+    matrix = matrixMultiply(matrix, viewMatrix);
+    return matrixMultiply(matrix, projectionMatrix);
+  }
+  // CAMBIO PLANO
+  function computeMatrixPlano(viewMatrix, projectionMatrix, translation) {
+    var translationMatrix = makeTranslation(translation[0], translation[1],translation[2]);
+
+    var matrix = makeIdentity();
+    matrix = matrixMultiply(matrix, translationMatrix);
 
     matrix = matrixMultiply(matrix, viewMatrix);
     return matrixMultiply(matrix, projectionMatrix);
@@ -296,7 +328,7 @@ function main() {
         makePerspective(fieldOfViewRadians, aspect, 1, 2000);
 
     // Compute the camera's matrix using look at.
-    var cameraPosition = [0, 150, 150];
+    var cameraPosition = [0, 100, 80];
     var target = [0, 0, 0];
     var up = [0, 1, 0];
     var cameraMatrix = makeLookAt(cameraPosition, target, up);
@@ -376,13 +408,21 @@ function main() {
     var torusYRotation =  time;
     var torusZRotation = -time
 
-
+    gl.useProgram(programInfo.program);
     
+    // CAMBIO PLANO
+    setBuffersAndAttributes(gl, programInfo.attribSetters, planeBufferInfo);
+    planoUniforms.u_matrix = computeMatrixPlano(viewMatrix, projectionMatrix, planeTranslation);
+    setUniforms(programInfo.uniformSetters, planoUniforms);
+    gl.drawArrays(gl.TRIANGLES, 0, planeBufferInfo.numElements);
+    // -------- Draw the Cylinder ------
+    setBuffersAndAttributes(gl, programInfo.attribSetters, cylinderBufferInfo);
+    cylinderUniforms.u_matrix = computeMatrixPlano(viewMatrix, projectionMatrix, cylinderTranslation);
+    setUniforms(programInfo.uniformSetters, cylinderUniforms);
+    gl.drawArrays(gl.TRIANGLES, 0, cylinderBufferInfo.numElements);
+
 
     // ------ Draw the sphere --------
-
-    gl.useProgram(programInfo.program);
-
     // Setup all the needed attributes.
     setBuffersAndAttributes(gl, programInfo.attribSetters, sphereBufferInfo);
 
