@@ -11,6 +11,7 @@
       <font face="Cambria">
         <div class="descripcion">Proyecto Gr&aacute;ficos por Computadora</div><bn>
         <div class="autores"><b style="color:#f2ec85">Autores: </b>Lozano Estefan&iacute;a, Mora Fausto & San Lucas C&eacute;sar</div>
+          <div class="proyectoDesc"><b style="color:#f2ec85">NOTA: </b>Para mover los objetos en X o en Z su velocidad de desplazamiento debe ser CERO (Sphere:STraslationSpeed=0, Cube:CTraslationSpeed=0...). Los controles se activan automaticamente</div>
       </font>
     </div>
 
@@ -21,10 +22,12 @@
 <script src="texturas/hft-icon-16.js"></script>
 <script src="texturas/malla.js"></script>
 <script src="js/dat.gui.js"></script>
-<script src="js/twgl-full.min.js"></script>
+<script src="js/TrackballControls.js"></script>
+
 <script src="js/webgl-utils.js"></script>
 <script src="js/webgl-3d-math.js"></script>
 <script src="js/primitives.js"></script>
+<script src="js/jquery-1.11.3.min.js"></script>
 <script>
 
 
@@ -41,11 +44,18 @@ function main() {
         gl,
         primitives.makeRandomVertexColors(
             primitives.deindexVertices(vertices),
-            {             
+            {
+              vertsPerColor: 6,
+              rand: function(ndx, channel) {
+                return channel < 3 ? ((128 + Math.random() * 128) | 0) : 255;
+              }
             })
       );
   };
 
+  // CREAR PLANO CAMBIO
+  var planeBufferInfo = createFlattenedVertices(gl, primitives.createPlaneVertices(canvas.width, canvas.height, 10, 10));
+  var cylinderBufferInfo = createFlattenedVertices(gl, primitives.createTruncatedConeVertices(8, 8, 100, 10, 10, false, true));
 
 //Crear las esferas
   var sphereBufferInfo = createFlattenedVertices(gl, primitives.createSphereVertices(6, 20, 20));
@@ -77,34 +87,10 @@ gl.enableVertexAttribArray(texcoordLocation);
 // We'll supply texcoords as floats.
 gl.vertexAttribPointer(texcoordLocation, 2, gl.FLOAT, false, 0, 0);
 
+var vector_texturas = [];
 function isPowerOf2(value) {
   return (value & (value - 1)) == 0;
 }
-      // Create a texture.
-    var texture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-  // Fill the texture with a 1x1 blue pixel.
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
-                new Uint8Array([0, 0, 255, 255]));
-
-    var image = new Image();
-    image.src = textura_Icon.src
-    console.log(image)
-    image.onload = function() {
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
-
-      // Check if the image is a power of 2 in both dimensions.
-      if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-         // Yes, it's a power of 2. Generate mips.
-         gl.generateMipmap(gl.TEXTURE_2D);
-      } else {
-         // No, it's not a power of 2. Turn of mips and set wrapping to clamp to edge
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      }
-    };
 
   var cameraAngleRadians = degToRad(0);
   var fieldOfViewRadians = degToRad(60);
@@ -117,7 +103,7 @@ function isPowerOf2(value) {
   };
   var cubeUniforms = {
     u_colorMult: [1, 0.5, 0.5, 1],
-    u_matrix: makeIdentity()
+    u_matrix: makeIdentity(),
   };
   var coneUniforms = {
     u_colorMult: [0.5, 0.5, 1, 1],
@@ -128,19 +114,24 @@ function isPowerOf2(value) {
     u_colorMult: [1, 1, 1, 1],
     u_matrix: makeIdentity(),
   }
+  // PLANO CAMBIO
+  var planoUniforms = {
+    u_colorMult: [1, 1, 1, 1],
+    u_matrix: makeIdentity(),
+  }
+  var cylinderUniforms = {
+    u_colorMult: [1, 1, 1, 1],
+    u_matrix: makeIdentity(),
+  }
+
+  //CAMBIO PLANO
+  var planeTranslation = [0,0,0];
+  var cylinderTranslation = [0,0,0];
 
   var sphereTranslation = [ 20,7,-20];
   var cubeTranslation   = [-30,10,-30];
   var coneTranslation   = [-40,9,40];
-  var torusTranslation  = [60,7,60];
-
-
-  var u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_matrix');
-  var u_Clicked = gl.getUniformLocation(gl.program, 'u_Clicked');
-  if (!u_MvpMatrix || !u_Clicked) { 
-    console.log('Failed to get the storage location of uniform variable');
-    return;
-  }
+  var torusTranslation  = [45,7,45];
 
   //CODIGO PARA LOS CONTROLES
   var controls = new function() {
@@ -160,8 +151,8 @@ function isPowerOf2(value) {
         this.rotationSpeedSphe = 0.4;
 
         this.STraslationSpeed = 0.1;
-        this.CTraslationSpeed = 0.5;
-        this.PTraslationSpeed = 0.5;
+        this.CTraslationSpeed = 0.2;
+        this.PTraslationSpeed = 0.3;
         this.TTraslationSpeed = 0.5;
 
         //Translation Sphere
@@ -174,6 +165,10 @@ function isPowerOf2(value) {
         this.traslationTorX = 80;
         this.traslationTorZ = 80;
 
+        //Zoom
+        this.Zoom=0;
+        this.Girar=0;
+
         this.colorSphere = "#0000ff";
         this.colorCube = "#ffe902";
         this.colorPyr =  "#00ff04";
@@ -184,6 +179,12 @@ function isPowerOf2(value) {
     var gui = new dat.GUI();
 
     //Se crearon carpetas para separar los controles de la esfera, cubo, piramide y toroide con el fin de mejorar la presentacion.
+
+    var Zoom = gui.addFolder('Camara');
+    Zoom.add(controls, 'Zoom',-100,35);
+    Zoom.add(controls, 'Girar',-180,180);
+    Zoom.open();
+
     var Sphere = gui.addFolder('Sphere');
     Sphere.add(controls, 'axisSelectSphe').options({'X Axis': 1, 'Y Axis': 2, 'Z Axis': 3});
     Sphere.add(controls, 'rotationSpeedSphe',0,0.5);
@@ -221,6 +222,8 @@ function isPowerOf2(value) {
     Pyr.add(controls, 'PTraslationSpeed',0,1);
     Pyr.addColor(controls, 'colorPyr');
 
+    
+
 
  //Escalamiento puede ser un vector de tres dimensiones tambien (pero que los valores sean iguales)
  //Rotacion tambien puede ser un valor de tres dimensiones
@@ -241,6 +244,16 @@ function isPowerOf2(value) {
     matrix = matrixMultiply(matrix, viewMatrix);
     return matrixMultiply(matrix, projectionMatrix);
   }
+  // CAMBIO PLANO
+  function computeMatrixPlano(viewMatrix, projectionMatrix, translation) {
+    var translationMatrix = makeTranslation(translation[0], translation[1],translation[2]);
+
+    var matrix = makeIdentity();
+    matrix = matrixMultiply(matrix, translationMatrix);
+
+    matrix = matrixMultiply(matrix, viewMatrix);
+    return matrixMultiply(matrix, projectionMatrix);
+  }
 
   //La siguiente funcion es para redibujar el canvas con un tamaño predeterminado por el usuario
   function resize(canvas) {
@@ -256,9 +269,7 @@ function isPowerOf2(value) {
           // Set the viewport to match
           gl.viewport(0, 0, canvas.width, canvas.height);
       }
-    }
-
-    requestAnimationFrame(drawScene);
+  }
     
     //-------------------------------------------------------------PARA LA ESFERA
     //Para la rotacion
@@ -296,10 +307,84 @@ function isPowerOf2(value) {
     //Para escalar
     var cubeScale=1;
 
+    //---------------------------------------------------------PARA La piramide
+    //Para la rotacion
+    var coneXRotation= 0;
+    var coneYRotation=0;
+    var coneZRotation=0;
+    //Para la traslacion
+    var updatePyramid = function() {
+        requestAnimationFrame(updatePyramid);
+        controls.traslationPyrX = coneTranslation[0];
+        controls.traslationPyrZ = coneTranslation[2];
+    };
+    updatePyramid();
+    var opSobreAdPyr=coneTranslation[2]/coneTranslation[0];
+    var anguloPyr=Math.atan(opSobreAdPyr);
+    var radioPyr=coneTranslation[0]/(Math.cos(anguloPyr));
+    //Para escalar
+    var coneScale=1;
 
+    //---------------------------------------------------------PARA el toroide
+    //Para la rotacion
+    var torusXRotation = 0;
+    var torusYRotation = 0;
+    var torusZRotation = 0;
+    //Para la traslacion
+    var updateTorus = function() {
+        requestAnimationFrame(updateTorus);
+        controls.traslationTorX = torusTranslation[0];
+        controls.traslationTorZ = torusTranslation[2];
+    };
+    updateTorus();
+    var opSobreAdTor=torusTranslation[2]/coneTranslation[0];
+    var anguloTor=Math.atan(opSobreAdTor);
+    var radioTor=torusTranslation[0]/(Math.cos(anguloTor));
+    //Para escalar
+    var torusScale=1;
 
-  // Draw the scene.
+    var vector_imagenes = []
 
+  // /////////////////////////////////////////////////////*************************************************TEXTURASSSS
+
+    function returnSrc(i){
+      switch(i){
+        case 0:
+          return textura_malla.src
+        case 1:
+          return textura_Icon.src
+        case 2:
+          return textura_keyboard.src
+        case 3:
+          return textura_ladrillo.src
+        default:
+          alert("No mas texturas")
+      }
+
+    }
+
+   var textureIndex=0 
+  $("body").click(function() {
+    var aux = textureIndex
+  
+    if(aux<4 || aux>=0){
+      console.log(aux)
+      textureIndex+=1;
+        if(textureIndex==4){
+          textureIndex=0;
+        } 
+    }else{
+      textureIndex=0;
+    }
+
+    //while(aux==textureIndex){
+    //  textureIndex = Math.floor(Math.random() * (4 - 0));
+    //}
+    console.log('click en body' + textureIndex);
+    drawScene();
+  });
+
+  requestAnimationFrame(drawScene);
   function drawScene(time) {
 
     resize(canvas);
@@ -317,15 +402,32 @@ function isPowerOf2(value) {
         makePerspective(fieldOfViewRadians, aspect, 1, 2000);
 
     // Compute the camera's matrix using look at.
-    var cameraPosition = [0, 150, 150];
+    var cameraPosition = [0, 100, 80];
     var target = [0, 0, 0];
     var up = [0, 1, 0];
-    var cameraMatrix = makeLookAt(cameraPosition, target, up);
 
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA LA CAMARA -----------------------------------------------------
+    // CAMBIO ZOOM
+    if (controls.Zoom!=0){
+      zoom = -1 * (controls.Zoom * 2);
+      cameraPosition[1] = cameraPosition[1] + zoom;
+      cameraPosition[2] = cameraPosition[2] + zoom;
+    }
+    if (controls.Girar!=0){
+      cameraPosition[0] = cameraPosition[2]*(Math.cos(controls.Girar*((2*Math.PI)/360)+(Math.PI/2)));
+      cameraPosition[2] = cameraPosition[2]*(Math.sin(controls.Girar*((2*Math.PI)/360)+(Math.PI/2)));
+
+    }
+    var cameraMatrix = makeLookAt(cameraPosition, target, up);
     // Make a view matrix from the camera matrix.
     var viewMatrix = makeInverse(cameraMatrix);
+    //----------------------------------------------TERMINA LA CAMARA -----------------------------------------------------
 
-    //////     Funciones de la esfera       ///////
+
+
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA LA ESFERA -----------------------------------------------------
       //rotacion de la esfera en sus propios ejes
     if (controls.axisSelectSphe == 1){
         sphereXRotation += controls.rotationSpeedSphe;
@@ -353,9 +455,12 @@ function isPowerOf2(value) {
     //Escalar la esfera
     sphereScale = controls.scaleSphe; 
 
+    //----------------------------------------------termina LA ESFERA -----------------------------------------------------
 
 
-     //////     Funciones del cubo       ///////
+
+     //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA EL CUBO -----------------------------------------------------
       //rotacion del cubo en sus propios ejes
     if (controls.axisSelectCube == 1){
         cubeXRotation += controls.rotationSpeedCube;
@@ -379,31 +484,123 @@ function isPowerOf2(value) {
         anguloCube=Math.atan(opSobreAdCube);
         radioCube=cubeTranslation[0]/(Math.cos(anguloCube));
     }
-    //Escalar la esfera
+    //Escalar el cubo
     cubeScale = controls.scaleCube;
+    //----------------------------------------------TERMINA EL CUBO -----------------------------------------------------
+
+
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA EL CONO -----------------------------------------------------
+      //rotacion del cubo en sus propios ejes
+    if (controls.axisSelectPyr == 1){
+        coneXRotation += controls.rotationSpeedPyr;
+    } else if (controls.axisSelectPyr == 2){
+        coneYRotation += controls.rotationSpeedPyr;
+    } else if(controls.axisSelectPyr == 3){
+        coneZRotation += controls.rotationSpeedPyr;
+    }
+    //Translacion para el cubo.
+    if(controls.PTraslationSpeed>0){
+        coneTranslation[0]=(radioPyr*Math.cos(anguloPyr));//EN X
+        coneTranslation[2]=(radioPyr*Math.sin(anguloPyr));//EN Z
+        anguloPyr+=0.10*controls.PTraslationSpeed;
+        controls.traslationPyrX=coneTranslation[0];
+        controls.traslationPyrZ=coneTranslation[2];
+    }else{
+        coneTranslation[0]=controls.traslationPyrX;
+        coneTranslation[2]=controls.traslationPyrZ;
+
+        opSobreAdPyr=coneTranslation[2]/coneTranslation[0];
+        anguloPyr=Math.atan(opSobreAdPyr);
+        radioPyr=coneTranslation[0]/(Math.cos(anguloPyr));
+    }
+    //Escala el cono
+   coneScale = controls.scalePyr;
 
 
 
-    coneScale = controls.scalePyr;
+    //----------------------------------------------TERMINA EL CONO -----------------------------------------------------
+
+
+
+
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------EMPIEZA EL TOROIDE---------------------------------------------------
+
+      //rotacion del cubo en sus propios ejes
+    if (controls.axisSelectTor == 1){
+        torusXRotation += controls.axisSelectTor;
+    } else if (controls.axisSelectTor == 2){
+        torusYRotation += controls.axisSelectTor;
+    } else if(controls.axisSelectTor == 3){
+        torusZRotation += controls.axisSelectTor;
+    }
+    //Translacion para el cubo.
+    if(controls.TTraslationSpeed>0){
+        torusTranslation[0]=(radioTor*Math.cos(anguloTor));//EN X
+        torusTranslation[2]=(radioTor*Math.sin(anguloTor));//EN Z
+        anguloTor+=0.10*controls.TTraslationSpeed;
+        controls.traslationTorX=torusTranslation[0];
+        controls.traslationTorZ=torusTranslation[2];
+    }else{
+        torusTranslation[0]=controls.traslationTorX;
+        torusTranslation[2]=controls.traslationTorZ;
+
+        opSobreAdTor=torusTranslation[2]/torusTranslation[0];
+        anguloTor=Math.atan(opSobreAdTor);
+        radioTor=torusTranslation[0]/(Math.cos(anguloTor));
+    }
+    //Escalar el toroide
     torusScale = controls.scaleTor;
+    //----------------------------------------------TERMINA EL TOROIDE-----------------------------------------------------
 
+   
 
-
-
-    var coneXRotation   =  time;
-    var coneYRotation   = -time;
-    var coneZRotation   = time;
     var torusXRotation =  time;
     var torusYRotation =  time;
     var torusZRotation = -time
 
 
-    
 
-    // ------ Draw the sphere --------
+
 
     gl.useProgram(programInfo.program);
+    //----------------------------------------------------------------------------------------------------------------------
+    //----------------------------------------------SE DIBUJAN TODAS LAS FIGURAS-----------------------------------------------
 
+        var texture = gl.createTexture();
+        var image = new Image();
+        image.src = returnSrc(textureIndex)
+        image.onload = function() {
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+
+          // Check if the image is a power of 2 in both dimensions.
+          if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+          // Yes, it's a power of 2. Generate mips.
+              gl.generateMipmap(gl.TEXTURE_2D);
+          } else {
+          // No, it's not a power of 2. Turn of mips and set wrapping to clamp to edge
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          }
+        };
+
+    
+    // ------ Draw the plane --------
+    setBuffersAndAttributes(gl, programInfo.attribSetters, planeBufferInfo);
+    planoUniforms.u_matrix = computeMatrixPlano(viewMatrix, projectionMatrix, planeTranslation);
+    setUniforms(programInfo.uniformSetters, planoUniforms);
+    gl.drawArrays(gl.TRIANGLES, 0, planeBufferInfo.numElements);
+    // -------- Draw the Cylinder ------
+    setBuffersAndAttributes(gl, programInfo.attribSetters, cylinderBufferInfo);
+    cylinderUniforms.u_matrix = computeMatrixPlano(viewMatrix, projectionMatrix, cylinderTranslation);
+    setUniforms(programInfo.uniformSetters, cylinderUniforms);
+    gl.drawArrays(gl.TRIANGLES, 0, cylinderBufferInfo.numElements);
+
+
+    // ------ Draw the sphere --------
     // Setup all the needed attributes.
     setBuffersAndAttributes(gl, programInfo.attribSetters, sphereBufferInfo);
 
@@ -418,7 +615,7 @@ function isPowerOf2(value) {
 
     // Set the uniforms we just computed
     setUniforms(programInfo.uniformSetters, sphereUniforms);
-
+    //gl.bindTexture(gl.TEXTURE_2D, textures[0]);
     gl.drawArrays(gl.TRIANGLES, 0, sphereBufferInfo.numElements);
 
     // ------ Draw the cube --------
