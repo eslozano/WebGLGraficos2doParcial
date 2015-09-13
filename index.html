@@ -17,44 +17,16 @@
 
   <canvas id="canvas"></canvas>
 
-
-
+<script src="texturas/keyboard.js"></script>
+<script src="texturas/ladrillos.js"></script>
+<script src="texturas/hft-icon-16.js"></script>
+<script src="texturas/malla.js"></script>
 <script src="js/dat.gui.js"></script>
 <script src="js/TrackballControls.js"></script>
 
 <script src="js/webgl-utils.js"></script>
 <script src="js/webgl-3d-math.js"></script>
 <script src="js/primitives.js"></script>
-
-<!-- vertex shader -->
-<script id="3d-vertex-shader" type="x-shader/x-vertex">
-attribute vec4 a_position;
-attribute vec4 a_color;
-
-uniform mat4 u_matrix;
-
-varying vec4 v_color;
-
-void main() {
-  // Multiply the position by the matrix.
-  gl_Position = u_matrix * a_position;
-  // Pass the color to the fragment shader.
-  v_color = a_color;
-}
-</script>
-<!-- fragment shader -->
-<script id="3d-fragment-shader" type="x-shader/x-fragment">
-//Este aun no tiene iluminacion, este habria que cambiarlo.
-precision mediump float;
-// Passed in from the vertex shader.
-varying vec4 v_color;
-
-uniform vec4 u_colorMult;
-
-void main() {
-   gl_FragColor = v_color * u_colorMult;
-}
-</script>
 <script>
 
 
@@ -96,6 +68,28 @@ function main() {
   function degToRad(d) {
     return d * Math.PI / 180;
   }
+
+  // look up where the vertex data needs to go.
+  var positionLocation = gl.getAttribLocation(programInfo.program, "a_position");
+  var texcoordLocation = gl.getAttribLocation(programInfo.program, "a_texcoord");
+
+  // Create a buffer.
+  var buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.enableVertexAttribArray(positionLocation);
+  gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
+
+// Create a buffer for texcoords.
+var buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.enableVertexAttribArray(texcoordLocation);
+// We'll supply texcoords as floats.
+gl.vertexAttribPointer(texcoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+var vector_texturas = [];
+function isPowerOf2(value) {
+  return (value & (value - 1)) == 0;
+}
 
   var cameraAngleRadians = degToRad(0);
   var fieldOfViewRadians = degToRad(60);
@@ -276,7 +270,7 @@ function main() {
       }
   }
 
-  requestAnimationFrame(drawScene);
+  //requestAnimationFrame(drawScene);
     
     //-------------------------------------------------------------PARA LA ESFERA
     //Para la rotacion
@@ -351,10 +345,56 @@ function main() {
     var torusScale=1;
 
 
+  // /////////////////////////////////////////////////////*************************************************TEXTURASSSS
+    for (var i=0; i<4;i++){
+        // Create a texture.
+        var texture = gl.createTexture();
+        var image = new Image();
+        image.src = returnSrc(i)
+        image.onload = function() {
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+
+          // Check if the image is a power of 2 in both dimensions.
+          if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+          // Yes, it's a power of 2. Generate mips.
+              gl.generateMipmap(gl.TEXTURE_2D);
+          } else {
+          // No, it's not a power of 2. Turn of mips and set wrapping to clamp to edge
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          }
+        };
+        drawScene();
+        vector_texturas.push(texture);
+    }
+
+    function returnSrc(i){
+      switch(i){
+        case 0:
+          return textura_malla.src
+        case 1:
+          return textura_Icon.src
+        case 2:
+          return textura_keyboard.src
+        case 3:
+          return textura_ladrillo.src
+        case 4:
+          return textura_ladrillo.src
+        case 6:
+          return textura_keyboard.src
+        default:
+          alert("No mas texturas")
+      }
+
+    }
 
 
 
-  // /////////////////////////////////////////////////////*************************************************Draw the scene.
+
+
+
 
   function drawScene(time) {
 
@@ -566,7 +606,7 @@ function main() {
 
     // Set the uniforms we just computed
     setUniforms(programInfo.uniformSetters, sphereUniforms);
-
+    //gl.bindTexture(gl.TEXTURE_2D, textures[0]);
     gl.drawArrays(gl.TRIANGLES, 0, sphereBufferInfo.numElements);
 
     // ------ Draw the cube --------
@@ -637,7 +677,41 @@ function main() {
 window.addEventListener('load', main);
 </script>
 
+<script id="3d-vertex-shader" type="x-shader/x-vertex">
+attribute vec4 a_position;
+attribute vec2 a_texcoord;
 
+uniform mat4 u_matrix;
+uniform bool u_Clicked;
+
+varying vec2 v_texcoord;
+void main() {
+  if (u_Clicked) {
+       v_texcoord = vec2(1.0, 0.0);
+  } else {
+      v_texcoord = a_texcoord;
+  }
+  // Multiply the position by the matrix.
+  gl_Position = u_matrix * a_position;
+  
+  // Pass the texcoord to the fragment shader.
+  
+}
+</script>
+<!-- fragment shader -->
+<script id="3d-fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+
+// Passed in from the vertex shader.
+varying vec2 v_texcoord;
+
+// The texture.
+uniform sampler2D u_texture;
+
+void main() {
+   gl_FragColor = texture2D(u_texture, v_texcoord);
+}
+</script>
 
 
 </body></html>
