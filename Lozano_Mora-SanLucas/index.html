@@ -128,10 +128,10 @@ function isPowerOf2(value) {
   var planeTranslation = [0,0,0];
   var cylinderTranslation = [0,0,0];
 
-  var sphereTranslation = [ 20,7,-20];
-  var cubeTranslation   = [-30,10,-30];
-  var coneTranslation   = [-40,9,40];
-  var torusTranslation  = [45,7,45];
+  var sphereTranslation = [ 20,11,-20];
+  var cubeTranslation   = [-30,14,-30];
+  var coneTranslation   = [-40,12,40];
+  var torusTranslation  = [5,7,5];
 
   //CODIGO PARA LOS CONTROLES
   var controls = new function() {
@@ -145,25 +145,25 @@ function isPowerOf2(value) {
         this.axisSelectTor = 1;
         this.axisSelectSphe = 1;
 
-        this.rotationSpeedCube = 0.4;
-        this.rotationSpeedPyr = 0.4;
-        this.rotationSpeedTor = 0.4;
-        this.rotationSpeedSphe = 0.4;
+        this.rotationSpeedCube = 0.005;
+        this.rotationSpeedPyr = 0.01;
+        this.rotationSpeedTor = 0.1;
+        this.rotationSpeedSphe = 0.1;
 
-        this.STraslationSpeed = 0.1;
-        this.CTraslationSpeed = 0.2;
-        this.PTraslationSpeed = 0.3;
-        this.TTraslationSpeed = 0.5;
+        this.STraslationSpeed = 0.06;
+        this.CTraslationSpeed = 0.06;
+        this.PTraslationSpeed = 0.06;
+        this.TTraslationSpeed = 0.06;
 
         //Translation Sphere
         this.traslationSpheX = 20;
         this.traslationSpheZ = -20;
-        this.traslationCubeX = -40;
-        this.traslationCubeZ = -40;
-        this.traslationPyrX = -60;
-        this.traslationPyrZ = 60;
-        this.traslationTorX = 80;
-        this.traslationTorZ = 80;
+        this.traslationCubeX = -35;
+        this.traslationCubeZ = -35;
+        this.traslationPyrX = -50;
+        this.traslationPyrZ = 50;
+        this.traslationTorX = 62;
+        this.traslationTorZ = 62;
 
         //Zoom
         this.Zoom=0;
@@ -279,8 +279,8 @@ function isPowerOf2(value) {
     //Para la traslacion
     var updateSphere = function() {
         requestAnimationFrame(updateSphere);
-        controls.traslationSpheX = sphereTranslation[0];
-        controls.traslationSpheZ = sphereTranslation[2];
+        sphereTranslation[0] = controls.traslationSpheX;
+        sphereTranslation[2] = controls.traslationSpheZ;
     };
     updateSphere();
     var opSobreAdSphere=sphereTranslation[2]/sphereTranslation[0];
@@ -297,8 +297,8 @@ function isPowerOf2(value) {
     //Para la traslacion
     var updateCubo = function() {
         requestAnimationFrame(updateCubo);
-        controls.traslationCubeX = cubeTranslation[0];
-        controls.traslationCubeZ = cubeTranslation[2];
+        cubeTranslation[0] = controls.traslationCubeX;
+        cubeTranslation[2] = controls.traslationCubeZ;
     };
     updateCubo();
     var opSobreAdCube=cubeTranslation[2]/cubeTranslation[0];
@@ -315,8 +315,8 @@ function isPowerOf2(value) {
     //Para la traslacion
     var updatePyramid = function() {
         requestAnimationFrame(updatePyramid);
-        controls.traslationPyrX = coneTranslation[0];
-        controls.traslationPyrZ = coneTranslation[2];
+        coneTranslation[0] = controls.traslationPyrX;
+        coneTranslation[2] = controls.traslationPyrZ;
     };
     updatePyramid();
     var opSobreAdPyr=coneTranslation[2]/coneTranslation[0];
@@ -333,8 +333,8 @@ function isPowerOf2(value) {
     //Para la traslacion
     var updateTorus = function() {
         requestAnimationFrame(updateTorus);
-        controls.traslationTorX = torusTranslation[0];
-        controls.traslationTorZ = torusTranslation[2];
+        torusTranslation[0] = controls.traslationTorX;
+        torusTranslation[2] = controls.traslationTorZ;
     };
     updateTorus();
     var opSobreAdTor=torusTranslation[2]/coneTranslation[0];
@@ -402,7 +402,7 @@ function isPowerOf2(value) {
         makePerspective(fieldOfViewRadians, aspect, 1, 2000);
 
     // Compute the camera's matrix using look at.
-    var cameraPosition = [0, 100, 80];
+    var cameraPosition = [0, 120, 100];
     var target = [0, 0, 0];
     var up = [0, 1, 0];
 
