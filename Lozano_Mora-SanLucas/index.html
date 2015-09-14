@@ -175,6 +175,12 @@ function isPowerOf2(value) {
         this.colorTor = "#ff0000";
     }
 
+   var textureIndex=0 
+  function cambiarTextura(i) {
+      textureIndex=i;
+      drawScene();
+  }
+
 
     var gui = new dat.GUI();
 
@@ -183,7 +189,23 @@ function isPowerOf2(value) {
     var Zoom = gui.addFolder('Camara');
     Zoom.add(controls, 'Zoom',-100,35);
     Zoom.add(controls, 'Girar',-180,180);
-    Zoom.open();
+
+
+    var obj_malla = { Malla: function(){ cambiarTextura(0) }};
+    var obj_ladrillo = { Ladrillo: function(){ cambiarTextura(3) }};
+    var obj_icono = { Carita: function(){ cambiarTextura(1) }};
+    var obj_keyboard = { Keyboard: function(){ cambiarTextura(2) }};
+
+    var texture_control = gui.addFolder('Textura');
+    texture_control.add(obj_malla,'Malla');
+    texture_control.add(obj_ladrillo,'Ladrillo');
+    texture_control.add(obj_icono,'Carita');
+    texture_control.add(obj_keyboard,'Keyboard');
+
+    //gui.add(obj_malla,'Textura Malla');
+    //gui.add(obj_ladrillo,'Textura Ladrillo');
+    //gui.add(obj_icono,'Textura Carita');
+    //gui.add(obj_keyboard,'Textura Keyboard');
 
     var Sphere = gui.addFolder('Sphere');
     Sphere.add(controls, 'axisSelectSphe').options({'X Axis': 1, 'Y Axis': 2, 'Z Axis': 3});
@@ -193,7 +215,7 @@ function isPowerOf2(value) {
     Sphere.add(controls, 'traslationSpheZ',-50,50).listen();
     Sphere.add(controls, 'STraslationSpeed',0,1);
     Sphere.addColor(controls, 'colorSphere');
-    Sphere.open();
+
 
     var Cube = gui.addFolder('Cube');
     Cube.add(controls, 'axisSelectCube').options({'X Axis': 1, 'Y Axis': 2, 'Z Axis': 3});
@@ -221,8 +243,6 @@ function isPowerOf2(value) {
     Pyr.add(controls, 'traslationPyrZ',-35,35).listen();
     Pyr.add(controls, 'PTraslationSpeed',0,1);
     Pyr.addColor(controls, 'colorPyr');
-
-    
 
 
  //Escalamiento puede ser un vector de tres dimensiones tambien (pero que los valores sean iguales)
@@ -363,26 +383,9 @@ function isPowerOf2(value) {
 
     }
 
-   var textureIndex=0 
-  $("body").click(function() {
-    var aux = textureIndex
-  
-    if(aux<4 || aux>=0){
-      console.log(aux)
-      textureIndex+=1;
-        if(textureIndex==4){
-          textureIndex=0;
-        } 
-    }else{
-      textureIndex=0;
-    }
-
     //while(aux==textureIndex){
     //  textureIndex = Math.floor(Math.random() * (4 - 0));
     //}
-    console.log('click en body' + textureIndex);
-    drawScene();
-  });
 
   requestAnimationFrame(drawScene);
   function drawScene(time) {
